@@ -12,6 +12,7 @@
             --text-main: #ffffff;
             --text-muted: #909296;
             --accent-blue: #339af0;
+            --accent-green: #2f9e44;
             --success-bg: #1c3325;
             --success-text: #40c057;
             --error-bg: #3b1c1c;
@@ -40,34 +41,33 @@
         .options-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; }
         .option-item { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 10px; background-color: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid transparent; transition: 0.2s; }
         .option-item:hover { background-color: rgba(255,255,255,0.08); }
-        .option-item input[type="radio"] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent-blue); }
+        .option-item input[type="radio"] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent-blue); cursor: pointer; }
         .option-text { font-size: 15px; line-height: 1.4; }
         
         .feedback { padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; font-weight: 500; font-size: 15px; line-height: 1.5; }
         .feedback.correct { background-color: var(--success-bg); color: var(--success-text); display: flex; align-items: flex-start; gap: 10px; border: 1px solid #2b5c3d;}
         .feedback.incorrect { background-color: var(--error-bg); color: var(--error-text); display: flex; align-items: flex-start; gap: 10px; border: 1px solid #732a2a;}
         
+        .action-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
         .btn-next { background-color: var(--accent-blue); border: none; color: white; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 15px; display: none; align-items: center; gap: 8px; font-weight: 600; width: fit-content; }
-        .btn-next:hover { background-color: #228be6; }
+        .btn-next:hover { opacity: 0.9; }
+        .btn-confirm { background-color: var(--accent-green); }
 
-        /* Giao diện Điện thoại (Tự động kích hoạt khi màn hình nhỏ hơn 768px) */
+        /* Giao diện Điện thoại */
         @media (max-width: 768px) {
             body { flex-direction: column; height: 100%; min-height: 100vh; overflow-y: auto; }
-            
             .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); padding: 15px; flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 10px; }
             .sidebar-section { width: 100%; margin-bottom: 0; }
-            
-            /* Sắp xếp 3 khối thống kê nằm ngang trên mobile */
             .stat-box { flex: 1; background-color: rgba(0,0,0,0.2); padding: 10px 5px; border-radius: 8px; text-align: center; margin-bottom: 0; min-width: 30%; border: 1px solid var(--border-color); }
             .stat-box .sidebar-section h3 { margin-bottom: 2px; font-size: 10px; }
             .stat-value { font-size: 18px; margin-top: 0; }
-            
             .main-content { padding: 20px 15px; }
             .header h1 { font-size: 22px; margin-bottom: 5px; }
             .subtitle { font-size: 13px; margin-bottom: 20px; }
             .question-number { font-size: 18px; }
             .question-text { font-size: 15px; }
             .option-text { font-size: 14px; }
+            .action-buttons { flex-direction: column; width: 100%; }
             .btn-next { width: 100%; justify-content: center; padding: 14px; }
         }
     </style>
@@ -94,7 +94,7 @@
 
     <main class="main-content">
         <div class="header">
-            <h1>📝 Exam Napas</h1>
+            <h1>📝 Napas Exam Trainer</h1>
         </div>
         <div class="subtitle" id="subtitleDisplay">Đang tải dữ liệu bộ đề...</div>
         
@@ -114,7 +114,10 @@
                 <span id="feedbackText"></span>
             </div>
 
-            <button class="btn-next" id="btnNext" onclick="nextQuestion()">➡️ Câu tiếp theo</button>
+            <div class="action-buttons">
+                <button class="btn-next btn-confirm" id="btnConfirm" onclick="confirmAnswer()">✅ Xác nhận</button>
+                <button class="btn-next" id="btnNext" onclick="nextQuestion()">➡️ Câu tiếp theo</button>
+            </div>
         </div>
     </main>
 
@@ -136,6 +139,7 @@
         let currentIndex = 0;
         let score = 0;
         let answeredCurrent = false;
+        let currentSelectedAnswer = null; // Biến lưu tạm đáp án đang chọn
 
         const selectEl = document.getElementById('examSetSelect');
         const qNumberEl = document.getElementById('questionNumber');
@@ -145,6 +149,7 @@
         const feedbackIcon = document.getElementById('feedbackIcon');
         const feedbackText = document.getElementById('feedbackText');
         const btnNext = document.getElementById('btnNext');
+        const btnConfirm = document.getElementById('btnConfirm');
         const scoreDisplay = document.getElementById('scoreDisplay');
         const totalDisplay = document.getElementById('totalDisplay');
         const progressDisplay = document.getElementById('progressDisplay');
@@ -174,6 +179,7 @@
             optionsListEl.innerHTML = '';
             feedbackBox.style.display = 'none';
             btnNext.style.display = 'none';
+            btnConfirm.style.display = 'none';
 
             try {
                 const response = await fetch(filename);
@@ -201,9 +207,7 @@
                     }
                 }
 
-                if (qIdx === -1) {
-                     throw new Error("Không tìm thấy tiêu đề 'Câu hỏi'.");
-                }
+                if (qIdx === -1) throw new Error("Không tìm thấy tiêu đề 'Câu hỏi'.");
 
                 for (let i = startIndex; i < rawData.length; i++) {
                     const row = rawData[i];
@@ -256,7 +260,9 @@
 
         function loadQuestion(index) {
             answeredCurrent = false;
+            currentSelectedAnswer = null; // Reset lựa chọn tạm thời
             feedbackBox.style.display = 'none';
+            btnConfirm.style.display = 'none';
             btnNext.style.display = 'none';
             feedbackBox.className = 'feedback';
             
@@ -276,6 +282,7 @@
                 input.type = 'radio';
                 input.name = 'current_question';
                 input.value = i;
+                // Khi click vào lựa chọn, gọi hàm ghi nhận (nhưng chưa chấm điểm)
                 input.onclick = () => selectAnswer(i);
 
                 const span = document.createElement('span');
@@ -290,14 +297,28 @@
 
         function selectAnswer(selectedIndex) {
             if (answeredCurrent) return;
+            // Chỉ ghi nhận vào biến tạm
+            currentSelectedAnswer = selectedIndex;
+            // Hiện nút Xác nhận
+            btnConfirm.style.display = 'inline-flex';
+        }
+
+        function confirmAnswer() {
+            // Nếu đã chấm điểm rồi hoặc chưa chọn đáp án nào thì không làm gì cả
+            if (answeredCurrent || currentSelectedAnswer === null) return;
+            
             answeredCurrent = true;
-
             const q = questions[currentIndex];
-            const isCorrect = (selectedIndex === q.correctAnswerIndex);
+            const isCorrect = (currentSelectedAnswer === q.correctAnswerIndex);
 
+            // Khóa tất cả các nút radio không cho bấm nữa
             const inputs = optionsListEl.querySelectorAll('input[type="radio"]');
             inputs.forEach(input => input.disabled = true);
 
+            // Ẩn nút xác nhận
+            btnConfirm.style.display = 'none';
+
+            // Hiện kết quả chấm điểm
             feedbackBox.style.display = 'flex';
             if (isCorrect) {
                 feedbackBox.classList.add('correct');
@@ -308,10 +329,11 @@
             } else {
                 feedbackBox.classList.add('incorrect');
                 feedbackIcon.innerHTML = '❌';
-                // Sử dụng innerHTML để in đậm đáp án đúng giúp dễ nhìn hơn
+                // In đậm đáp án đúng
                 feedbackText.innerHTML = `Chưa chính xác.<br>Đáp án đúng là: <b>${q.options[q.correctAnswerIndex]}</b>`;
             }
 
+            // Hiện nút qua câu tiếp theo
             btnNext.style.display = 'inline-flex';
             if (currentIndex === questions.length - 1) {
                 btnNext.innerHTML = '🔄 Hoàn thành! Làm lại từ đầu';
