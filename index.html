@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Trainer - Chế độ ôn luyện</title>
+    <title>Exam Trainer - Ôn Luyện</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -22,7 +22,6 @@
         body { display: flex; height: 100vh; background-color: var(--bg-main); color: var(--text-main); }
         .sidebar { width: 250px; background-color: var(--bg-sidebar); padding: 20px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 20px; }
         .sidebar-section h3 { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; font-weight: 600; }
-        .radio-group label { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 8px; cursor: pointer; }
         .stat-box { margin-bottom: 15px; }
         .stat-value { font-size: 24px; font-weight: bold; margin-top: 5px; }
         select { width: 100%; padding: 8px; background: #1a1b1e; border: 1px solid var(--border-color); color: white; border-radius: 4px; cursor: pointer; outline: none; }
@@ -48,15 +47,7 @@
 <body>
     <aside class="sidebar">
         <div class="sidebar-section">
-            <h3>Chế độ ôn luyện</h3>
-            <div class="radio-group">
-                <label><input type="radio" name="mode" disabled> Tất cả câu hỏi</label>
-                <label><input type="radio" name="mode" checked> Theo bộ đề</label>
-            </div>
-        </div>
-        <div class="sidebar-section">
             <h3>Chọn bộ đề</h3>
-            <!-- Sẽ được thêm tự động bằng JavaScript -->
             <select id="examSetSelect"></select>
         </div>
         <div class="stat-box">
@@ -100,7 +91,7 @@
     </main>
 
     <script>
-        // Khai báo danh sách các file Excel dựa trên ảnh của bạn
+        // Cập nhật lại danh sách file
         const examFiles = [
             { file: 'P01-QTHT Hieu biet ve sp dv nghiep vu thanh toan.xlsx', name: 'P01 - Nghiệp vụ thanh toán' },
             { file: 'P09-QTHT Phan tich nghiep vu.xlsx', name: 'P09 - Phân tích nghiệp vụ' },
@@ -132,7 +123,6 @@
         const progressDisplay = document.getElementById('progressDisplay');
         const progressBar = document.getElementById('progressBar');
 
-        // Hàm khởi tạo danh sách bộ đề
         function setupDropdown() {
             selectEl.innerHTML = '';
             examFiles.forEach(f => {
@@ -142,14 +132,12 @@
                 selectEl.appendChild(opt);
             });
 
-            // Khi người dùng chọn bộ đề khác
             selectEl.addEventListener('change', (e) => {
                 loadExcelData(e.target.value);
             });
         }
 
         async function loadExcelData(filename) {
-            // Reset các chỉ số khi đổi đề
             questions = [];
             currentIndex = 0;
             score = 0;
@@ -167,33 +155,45 @@
                 const arrayBuffer = await response.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
                 
-                // Tự động tìm sheet 'P[số]_final' hoặc lấy sheet cuối cùng
                 const sheetName = workbook.SheetNames.find(n => n.includes('final')) || workbook.SheetNames[workbook.SheetNames.length - 1];
                 const worksheet = workbook.Sheets[sheetName];
                 
                 const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                 
+                let qIdx = -1;
                 let startIndex = 12; 
+
+                // TỰ ĐỘNG DÒ TÌM VỊ TRÍ CỘT CÂU HỎI VÀ ĐÁP ÁN (Bỏ fix cứng cột)
                 for (let i = 0; i < 20; i++) {
-                    if (rawData[i] && rawData[i][5] === 'Câu hỏi') {
-                        startIndex = i + 3;
+                    const row = rawData[i];
+                    if (!row) continue;
+                    
+                    qIdx = row.findIndex(cell => typeof cell === 'string' && cell.trim() === 'Câu hỏi');
+                    if (qIdx !== -1) {
+                        startIndex = i + 3; // Dữ liệu luôn cách dòng header 3 dòng
                         break;
                     }
                 }
 
+                if (qIdx === -1) {
+                     throw new Error("Không tìm thấy tiêu đề 'Câu hỏi' trong bảng.");
+                }
+
                 for (let i = startIndex; i < rawData.length; i++) {
                     const row = rawData[i];
-                    if (!row || !row[5] || String(row[5]).trim() === '') continue; 
                     
-                    const questionText = String(row[5]).trim();
-                    const correctAnswer = row[6] ? String(row[6]).trim() : "";
+                    // Nếu ô câu hỏi trống thì bỏ qua dòng đó
+                    if (!row || !row[qIdx] || String(row[qIdx]).trim() === '') continue; 
+                    
+                    const questionText = String(row[qIdx]).trim();
+                    const correctAnswer = row[qIdx + 1] ? String(row[qIdx + 1]).trim() : "";
                     
                     if (!correctAnswer) continue; 
 
                     let allOptions = [correctAnswer];
-                    if (row[7] && String(row[7]).trim() !== '') allOptions.push(String(row[7]).trim());
-                    if (row[8] && String(row[8]).trim() !== '') allOptions.push(String(row[8]).trim());
-                    if (row[9] && String(row[9]).trim() !== '') allOptions.push(String(row[9]).trim());
+                    if (row[qIdx + 2] && String(row[qIdx + 2]).trim() !== '') allOptions.push(String(row[qIdx + 2]).trim());
+                    if (row[qIdx + 3] && String(row[qIdx + 3]).trim() !== '') allOptions.push(String(row[qIdx + 3]).trim());
+                    if (row[qIdx + 4] && String(row[qIdx + 4]).trim() !== '') allOptions.push(String(row[qIdx + 4]).trim());
                     
                     const exactCorrectText = allOptions[0];
 
@@ -308,7 +308,6 @@
 
         window.onload = () => {
             setupDropdown();
-            // Tải file đầu tiên ngay khi mở trang web
             loadExcelData(examFiles[0].file);
         };
     </script>
