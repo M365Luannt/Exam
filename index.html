@@ -82,7 +82,7 @@
             <h3>Cấp độ nhân viên</h3>
             <select id="levelSelect">
                 <option value="all">Tất cả cấp độ (Giao su)</option>
-                <option value="1,2">Cấp độ 1 & 2 (Chuyen vien 1)</option>
+                <option value="1,2">Cấp độ 1 & 2 (Chuyen vien lom dom)</option>
                 <option value="1">Chỉ Cấp độ 1</option>
                 <option value="1,2,3">Cấp độ 1, 2 & 3</option>
             </select>
@@ -103,7 +103,7 @@
 
     <main class="main-content">
         <div class="header">
-            <h1>📝 Napas Exam </h1>
+            <h1>📝 Napas Exam Trainer</h1>
         </div>
         <div class="subtitle" id="subtitleDisplay">Đang tải dữ liệu bộ đề...</div>
         
@@ -131,23 +131,24 @@
     </main>
 
     <script>
-        // Tôi đã bổ sung thêm tên file P01 2026.xlsx vào danh sách để bạn tiện sử dụng
+        // Cập nhật danh sách file chuẩn theo ảnh mới nhất
         const examFiles = [
-            { file: 'P01 2026.xlsx', name: 'P01 - Nghiệp vụ thanh toán 2026' },
-            { file: 'P01-QTHT Hieu biet ve sp dv nghiep vu thanh toan.xlsx', name: 'P01 - Nghiệp vụ thanh toán (Cũ)' },
-            { file: 'P09-QTHT Phan tich nghiep vu.xlsx', name: 'P09 - Phân tích nghiệp vụ' },
-            { file: 'P10-QTHT Thiet ke kien truc CNTT.xlsx', name: 'P10 - Thiết kế kiến trúc CNTT' },
-            { file: 'P12-QTHT Quan tri va khai thac du lieu CNTT.xlsx', name: 'P12 - Quản trị và khai thác dữ liệu CNTT' },
-            { file: 'P13b-QTHT Dam bao chat luong dich vu CNTT.xlsx', name: 'P13b - Đảm bảo chất lượng dịch vụ CNTT' },
-            { file: 'P15-QTHT Van hanh quan tri ha tang CNTT.xlsx', name: 'P15 - Vận hành quản trị hạ tầng CNTT' },
-            { file: 'P16-QTHT An toan va ANTT.xlsx', name: 'P16 - An toàn và ANTT' },
-            { file: 'P20-QTHT Mua sam.xlsx', name: 'P20 - Mua sắm' },
-            { file: 'P21-QTHT Hieu biet ve Cong ty.xlsx', name: 'P21 - Hiểu biết về Công ty' },
-            { file: 'P30-QTHT Quan tri rui ro.xlsx', name: 'P30 - Quản trị rủi ro' }
+            { file: 'P01 2026.xlsx', name: 'P01 - Nghiệp vụ thanh toán' },
+            { file: 'P09 2026.xlsx', name: 'P09 - Phân tích nghiệp vụ' },
+            { file: 'P10-2026.xlsx', name: 'P10 - Thiết kế kiến trúc CNTT' },
+            { file: 'P11 2026.xlsx', name: 'P11 (2026)' },
+            { file: 'P12 2026.xlsx', name: 'P12 - Quản trị và khai thác dữ liệu CNTT' },
+            { file: 'P13-2026.xlsx', name: 'P13 - Đảm bảo chất lượng dịch vụ CNTT' },
+            { file: 'P14-2026.xlsx', name: 'P14 (2026)' },
+            { file: 'P16 2026.xlsx', name: 'P16 - An toàn và ANTT' },
+            { file: 'P19 2026.xlsx', name: 'P19 (2026)' },
+            { file: 'P26-2026.xlsx', name: 'P26 (2026)' },
+            { file: 'P36-2026.xlsx', name: 'P36 (2026)' },
+            { file: 'P39 2026.xlsx', name: 'P39 (2026)' }
         ];
 
-        let allQuestions = []; // Lưu trữ toàn bộ câu hỏi tải từ Excel
-        let questions = [];    // Lưu trữ câu hỏi đã được lọc theo cấp độ
+        let allQuestions = []; 
+        let questions = [];    
         let currentIndex = 0;
         let score = 0;
         let answeredCurrent = false;
@@ -177,12 +178,10 @@
                 selectEl.appendChild(opt);
             });
 
-            // Khi người dùng đổi bộ đề
             selectEl.addEventListener('change', (e) => {
                 loadExcelData(e.target.value);
             });
 
-            // Khi người dùng đổi cấp độ nhân sự
             levelSelectEl.addEventListener('change', () => {
                 applyLevelFilter();
             });
@@ -217,7 +216,6 @@
                 let levelIdx = -1;
                 let startIndex = 12; 
 
-                // Tự động tìm vị trí các cột "Câu hỏi" và "Cấp độ"
                 for (let i = 0; i < 20; i++) {
                     const row = rawData[i];
                     if (!row) continue;
@@ -241,7 +239,6 @@
                     const questionText = String(row[qIdx]).trim();
                     const correctAnswer = row[qIdx + 1] ? String(row[qIdx + 1]).trim() : "";
                     
-                    // Đọc cấp độ của câu hỏi (nếu file không có cột cấp độ thì mặc định là 1)
                     const levelValue = (levelIdx !== -1 && row[levelIdx]) ? String(row[levelIdx]).trim() : "1";
                     
                     if (!correctAnswer) continue; 
@@ -253,7 +250,6 @@
                     
                     const exactCorrectText = allOptions[0];
 
-                    // Xáo trộn vị trí đáp án
                     for (let j = allOptions.length - 1; j > 0; j--) {
                         const k = Math.floor(Math.random() * (j + 1));
                         [allOptions[j], allOptions[k]] = [allOptions[k], allOptions[j]];
@@ -269,7 +265,6 @@
                     });
                 }
 
-                // Sau khi quét xong Excel, tiến hành lọc theo cấp độ đang chọn
                 applyLevelFilter();
 
             } catch (error) {
@@ -278,7 +273,6 @@
             }
         }
 
-        // Hàm lọc danh sách câu hỏi dựa trên cấp độ được chọn
         function applyLevelFilter() {
             const selectedLevel = levelSelectEl.value;
             
