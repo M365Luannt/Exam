@@ -78,6 +78,15 @@
             <h3>Chọn bộ đề ôn luyện</h3>
             <select id="examSetSelect"></select>
         </div>
+        <div class="sidebar-section">
+            <h3>Cấp độ nhân viên</h3>
+            <select id="levelSelect">
+                <option value="all">Tất cả cấp độ (Nhân viên cấp cao)</option>
+                <option value="1,2">Cấp độ 1 & 2 (Nhân viên CV1)</option>
+                <option value="1">Chỉ Cấp độ 1</option>
+                <option value="1,2,3">Cấp độ 1, 2 & 3</option>
+            </select>
+        </div>
         <div class="stat-box">
             <div class="sidebar-section"><h3>Điểm</h3></div>
             <div class="stat-value" id="scoreDisplay">0</div>
@@ -115,15 +124,17 @@
             </div>
 
             <div class="action-buttons">
-                <button class="btn-next btn-confirm" id="btnConfirm" onclick="confirmAnswer()">Xác nhận</button>
+                <button class="btn-next btn-confirm" id="btnConfirm" onclick="confirmAnswer()">✅ Xác nhận</button>
                 <button class="btn-next" id="btnNext" onclick="nextQuestion()">➡️ Câu tiếp theo</button>
             </div>
         </div>
     </main>
 
     <script>
+        // Tôi đã bổ sung thêm tên file P01 2026.xlsx vào danh sách để bạn tiện sử dụng
         const examFiles = [
-            { file: 'P01-QTHT Hieu biet ve sp dv nghiep vu thanh toan.xlsx', name: 'P01 - Nghiệp vụ thanh toán' },
+            { file: 'P01 2026.xlsx', name: 'P01 - Nghiệp vụ thanh toán 2026' },
+            { file: 'P01-QTHT Hieu biet ve sp dv nghiep vu thanh toan.xlsx', name: 'P01 - Nghiệp vụ thanh toán (Cũ)' },
             { file: 'P09-QTHT Phan tich nghiep vu.xlsx', name: 'P09 - Phân tích nghiệp vụ' },
             { file: 'P10-QTHT Thiet ke kien truc CNTT.xlsx', name: 'P10 - Thiết kế kiến trúc CNTT' },
             { file: 'P12-QTHT Quan tri va khai thac du lieu CNTT.xlsx', name: 'P12 - Quản trị và khai thác dữ liệu CNTT' },
@@ -135,13 +146,15 @@
             { file: 'P30-QTHT Quan tri rui ro.xlsx', name: 'P30 - Quản trị rủi ro' }
         ];
 
-        let questions = []; 
+        let allQuestions = []; // Lưu trữ toàn bộ câu hỏi tải từ Excel
+        let questions = [];    // Lưu trữ câu hỏi đã được lọc theo cấp độ
         let currentIndex = 0;
         let score = 0;
         let answeredCurrent = false;
-        let currentSelectedAnswer = null; // Biến lưu tạm đáp án đang chọn
+        let currentSelectedAnswer = null;
 
         const selectEl = document.getElementById('examSetSelect');
+        const levelSelectEl = document.getElementById('levelSelect');
         const qNumberEl = document.getElementById('questionNumber');
         const qTextEl = document.getElementById('questionText');
         const optionsListEl = document.getElementById('optionsList');
@@ -155,7 +168,7 @@
         const progressDisplay = document.getElementById('progressDisplay');
         const progressBar = document.getElementById('progressBar');
 
-        function setupDropdown() {
+        function setupDropdowns() {
             selectEl.innerHTML = '';
             examFiles.forEach(f => {
                 const opt = document.createElement('option');
@@ -164,12 +177,19 @@
                 selectEl.appendChild(opt);
             });
 
+            // Khi người dùng đổi bộ đề
             selectEl.addEventListener('change', (e) => {
                 loadExcelData(e.target.value);
+            });
+
+            // Khi người dùng đổi cấp độ nhân sự
+            levelSelectEl.addEventListener('change', () => {
+                applyLevelFilter();
             });
         }
 
         async function loadExcelData(filename) {
+            allQuestions = [];
             questions = [];
             currentIndex = 0;
             score = 0;
@@ -194,13 +214,17 @@
                 const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                 
                 let qIdx = -1;
+                let levelIdx = -1;
                 let startIndex = 12; 
 
+                // Tự động tìm vị trí các cột "Câu hỏi" và "Cấp độ"
                 for (let i = 0; i < 20; i++) {
                     const row = rawData[i];
                     if (!row) continue;
                     
                     qIdx = row.findIndex(cell => typeof cell === 'string' && cell.trim() === 'Câu hỏi');
+                    levelIdx = row.findIndex(cell => typeof cell === 'string' && cell.trim() === 'Cấp độ');
+                    
                     if (qIdx !== -1) {
                         startIndex = i + 3;
                         break;
@@ -217,6 +241,9 @@
                     const questionText = String(row[qIdx]).trim();
                     const correctAnswer = row[qIdx + 1] ? String(row[qIdx + 1]).trim() : "";
                     
+                    // Đọc cấp độ của câu hỏi (nếu file không có cột cấp độ thì mặc định là 1)
+                    const levelValue = (levelIdx !== -1 && row[levelIdx]) ? String(row[levelIdx]).trim() : "1";
+                    
                     if (!correctAnswer) continue; 
 
                     let allOptions = [correctAnswer];
@@ -226,6 +253,7 @@
                     
                     const exactCorrectText = allOptions[0];
 
+                    // Xáo trộn vị trí đáp án
                     for (let j = allOptions.length - 1; j > 0; j--) {
                         const k = Math.floor(Math.random() * (j + 1));
                         [allOptions[j], allOptions[k]] = [allOptions[k], allOptions[j]];
@@ -233,34 +261,62 @@
                     
                     const correctIdx = allOptions.indexOf(exactCorrectText);
                     
-                    questions.push({
+                    allQuestions.push({
                         question: questionText,
                         options: allOptions,
-                        correctAnswerIndex: correctIdx
+                        correctAnswerIndex: correctIdx,
+                        level: levelValue
                     });
                 }
 
-                initQuiz(filename);
+                // Sau khi quét xong Excel, tiến hành lọc theo cấp độ đang chọn
+                applyLevelFilter();
+
             } catch (error) {
                 console.error("Lỗi:", error);
-                qTextEl.innerHTML = `<span style="color:red">Lỗi: Không thể tải file Excel. Vui lòng đảm bảo file đã được upload.</span>`;
+                qTextEl.innerHTML = `<span style="color:red">Lỗi: Không thể tải file Excel. Vui lòng đảm bảo file <b>${filename}</b> đã được upload lên GitHub.</span>`;
             }
+        }
+
+        // Hàm lọc danh sách câu hỏi dựa trên cấp độ được chọn
+        function applyLevelFilter() {
+            const selectedLevel = levelSelectEl.value;
+            
+            if (selectedLevel === 'all') {
+                questions = [...allQuestions];
+            } else {
+                const allowedLevels = selectedLevel.split(',');
+                questions = allQuestions.filter(q => allowedLevels.includes(q.level));
+            }
+            
+            currentIndex = 0;
+            score = 0;
+            scoreDisplay.innerText = score;
+            
+            initQuiz(selectEl.value);
         }
 
         function initQuiz(filename) {
             if(questions.length === 0) {
-                qTextEl.innerHTML = `<span style="color:red">Không tìm thấy câu hỏi hợp lệ.</span>`;
+                qTextEl.innerHTML = `<span style="color:red">Không có câu hỏi nào thuộc cấp độ này trong bộ đề. Vui lòng chọn cấp độ khác.</span>`;
+                totalDisplay.innerText = 0;
+                progressDisplay.innerText = '0/0';
+                progressBar.style.width = '0%';
+                feedbackBox.style.display = 'none';
+                btnConfirm.style.display = 'none';
+                btnNext.style.display = 'none';
                 return;
             }
+            
             totalDisplay.innerText = questions.length;
             const currentExamName = examFiles.find(f => f.file === filename).name;
-            document.getElementById('subtitleDisplay').innerText = `Bộ đề: ${currentExamName}`;
+            document.getElementById('subtitleDisplay').innerText = `Bộ đề: ${currentExamName} (Đang ôn ${questions.length} câu)`;
             loadQuestion(currentIndex);
         }
 
         function loadQuestion(index) {
             answeredCurrent = false;
-            currentSelectedAnswer = null; // Reset lựa chọn tạm thời
+            currentSelectedAnswer = null;
             feedbackBox.style.display = 'none';
             btnConfirm.style.display = 'none';
             btnNext.style.display = 'none';
@@ -282,7 +338,6 @@
                 input.type = 'radio';
                 input.name = 'current_question';
                 input.value = i;
-                // Khi click vào lựa chọn, gọi hàm ghi nhận (nhưng chưa chấm điểm)
                 input.onclick = () => selectAnswer(i);
 
                 const span = document.createElement('span');
@@ -297,28 +352,22 @@
 
         function selectAnswer(selectedIndex) {
             if (answeredCurrent) return;
-            // Chỉ ghi nhận vào biến tạm
             currentSelectedAnswer = selectedIndex;
-            // Hiện nút Xác nhận
             btnConfirm.style.display = 'inline-flex';
         }
 
         function confirmAnswer() {
-            // Nếu đã chấm điểm rồi hoặc chưa chọn đáp án nào thì không làm gì cả
             if (answeredCurrent || currentSelectedAnswer === null) return;
             
             answeredCurrent = true;
             const q = questions[currentIndex];
             const isCorrect = (currentSelectedAnswer === q.correctAnswerIndex);
 
-            // Khóa tất cả các nút radio không cho bấm nữa
             const inputs = optionsListEl.querySelectorAll('input[type="radio"]');
             inputs.forEach(input => input.disabled = true);
 
-            // Ẩn nút xác nhận
             btnConfirm.style.display = 'none';
 
-            // Hiện kết quả chấm điểm
             feedbackBox.style.display = 'flex';
             if (isCorrect) {
                 feedbackBox.classList.add('correct');
@@ -329,11 +378,9 @@
             } else {
                 feedbackBox.classList.add('incorrect');
                 feedbackIcon.innerHTML = '❌';
-                // In đậm đáp án đúng
                 feedbackText.innerHTML = `Chưa chính xác.<br>Đáp án đúng là: <b>${q.options[q.correctAnswerIndex]}</b>`;
             }
 
-            // Hiện nút qua câu tiếp theo
             btnNext.style.display = 'inline-flex';
             if (currentIndex === questions.length - 1) {
                 btnNext.innerHTML = '🔄 Hoàn thành! Làm lại từ đầu';
@@ -355,7 +402,7 @@
         }
 
         window.onload = () => {
-            setupDropdown();
+            setupDropdowns();
             loadExcelData(examFiles[0].file);
         };
     </script>
